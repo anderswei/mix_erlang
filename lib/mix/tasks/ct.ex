@@ -16,7 +16,7 @@ defmodule Mix.Tasks.Ct do
   @cover [tool: Mix.Tasks.Test.Cover, output: "cover"]
 
   def run(args) do
-    {opts, _, args} = OptionParser.parse(args, strict: @options, aliases: [c: :cover])
+    {opts, _, _args} = OptionParser.parse(args, strict: @options, aliases: [c: :cover])
     project = Mix.Project.config()
 
     unless System.get_env("MIX_ENV") || Mix.env() == :test do
@@ -45,7 +45,7 @@ defmodule Mix.Tasks.Ct do
       |> set_args(:suite, opts)
       |> set_args(:testcase, opts)
       |> Keyword.update!(:dirs, &(&1 ++ Keyword.get_values(opts, :dir)))
-      |> Keyword.put_new(:ct_hooks, [:tt_cth])
+      |> Keyword.put_new(:ct_hooks, [:tt_cth, :cth_surefire])
 
 
     File.mkdir_p!(options[:logdir])
