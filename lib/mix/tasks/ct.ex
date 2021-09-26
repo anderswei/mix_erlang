@@ -10,6 +10,7 @@ defmodule Mix.Tasks.Ct do
     testcase: [:string, :keep],
     dir: [:string, :keep],
     sys_config: [:string, :keep],
+    logdir: [:string, :keep],
     cover: :boolean
   ]
 
@@ -44,6 +45,7 @@ defmodule Mix.Tasks.Ct do
       |> set_args(:group, opts)
       |> set_args(:suite, opts)
       |> set_args(:testcase, opts)
+      |> set_args(:logdir, opts)
       |> Keyword.update!(:dirs, &(&1 ++ Keyword.get_values(opts, :dir)))
       |> Keyword.put_new(:ct_hooks, [:tt_cth, :cth_surefire])
 
@@ -59,6 +61,7 @@ defmodule Mix.Tasks.Ct do
         cover[:tool].start(compile_path, cover)
       end
     
+    IO.inspect(options)
     case :ct.run_test(Keyword.put_new(options, :suite, suites)) do
       {ok, failed, {user_skipped, auto_skipped}} ->
         cover && cover.()
