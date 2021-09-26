@@ -33,7 +33,7 @@ defmodule Mix.Tasks.Ct do
         [d: :TEST]
       end
 
-    :ok = Mix.Erlang.recompile_with_options(args, options)
+    # :ok = Mix.Erlang.recompile_with_options(args, options)
 
     options =
       project
@@ -41,10 +41,12 @@ defmodule Mix.Tasks.Ct do
       |> Keyword.put(:auto_compile, false)
       |> Keyword.put_new(:dirs, ["test"])
       |> Keyword.update(:logdir, 'log/ct', &to_erl_path/1)
-      |> set_args(:suite, opts)
       |> set_args(:group, opts)
+      |> set_args(:suite, opts)
       |> set_args(:testcase, opts)
       |> Keyword.update!(:dirs, &(&1 ++ Keyword.get_values(opts, :dir)))
+      |> Keyword.put_new(:ct_hooks, [:tt_cth])
+
 
     File.mkdir_p!(options[:logdir])
 
@@ -56,7 +58,7 @@ defmodule Mix.Tasks.Ct do
         cover = Keyword.merge(@cover, project[:test_coverage] || [])
         cover[:tool].start(compile_path, cover)
       end
-
+    
     case :ct.run_test(Keyword.put_new(options, :suite, suites)) do
       {ok, failed, {user_skipped, auto_skipped}} ->
         cover && cover.()
@@ -87,9 +89,18 @@ defmodule Mix.Tasks.Ct do
         options
 
       values when is_list(values) ->
+        values = transition(akey, values)
         Keyword.put(options, okey, Enum.map(values, &to_charlist/1))
     end
   end
+
+  defp transition(:suite, [values]) do
+    String.split(values, ",")
+  end 
+  defp transition(_name, values) do
+    values
+  end 
+
 
   defp compile_tests(options) do
     dirs = Keyword.fetch!(options, :dirs)
@@ -98,13 +109,25 @@ defmodule Mix.Tasks.Ct do
     erlc_opts = [:report, :binary, {:i, include_dir}] ++ Mix.Project.config()[:erlc_options]
 
     mods =
-      for path <- dirs,
-          file <- Path.wildcard("#{path}/**/*_SUITE.erl") do
-        {:ok, mod, binary} = :compile.file(String.to_charlist(file), erlc_opts)
+      case Keyword.get(options, :suite) do
+        nil ->
+          for path <- dirs,
+              file <- Path.wildcard("#{path}/**/*_SUITE.erl") do
+            {:ok, mod, binary} = :compile.file(String.to_charlist(file), erlc_opts)
 
-        {:module, ^mod} = :code.load_binary(mod, to_charlist(file), binary)
+            {:module, ^mod} = :code.load_binary(mod, to_charlist(file), binary)
 
-        mod
+            mod
+          end
+
+        files ->
+          for file <- files do
+            {:ok, mod, binary} = :compile.file(file, erlc_opts)
+
+            {:module, ^mod} = :code.load_binary(mod, to_charlist(file), binary)
+
+            mod
+          end
       end
 
     {:ok, mods}
