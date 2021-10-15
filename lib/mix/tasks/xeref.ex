@@ -9,7 +9,7 @@ defmodule Mix.Tasks.Xeref do
 
     {:ok, pid} = :xref.start(xref_mode: :functions)
     :xref.set_library_path(pid, :code.get_path)
-    :xref.set_default(pid, [warnings: true, verbose: true])
+    :xref.set_default(pid, [warnings: false, verbose: false])
     :xref.add_directory(pid, String.to_charlist(Mix.Project.compile_path))
     result = Enum.map(xref_checks, fn check -> 
       {:ok, r} = :xref.analyze(pid, check)
