@@ -17,6 +17,9 @@ defmodule Mix.Tasks.Xeref do
      end)
     textResult = format_errors(result)
     IO.puts(List.to_string(textResult))
+    if length(textResult) > 0 do
+     :erlang.halt(1)
+    end 
   end
   
   # the following code is from rebar_priv_xref which was erlang
