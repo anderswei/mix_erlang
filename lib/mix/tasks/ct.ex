@@ -47,7 +47,7 @@ defmodule Mix.Tasks.Ct do
       |> set_args(:testcase, opts)
       |> set_args(:logdir, opts)
       |> Keyword.update!(:dirs, &(&1 ++ Keyword.get_values(opts, :dir)))
-      |> Keyword.put_new(:ct_hooks, [:tt_cth, :cth_surefire])
+      |> Keyword.put_new(:ct_hooks, [:cth_surefire, :cth_readable_failonly, :cth_readable_shell,:tt_cth])
 
 
     File.mkdir_p!(options[:logdir])
@@ -62,6 +62,8 @@ defmodule Mix.Tasks.Ct do
       end
     
     IO.inspect(options)
+    load_app(:common_test)
+    load_app(:cth_readable)
     case :ct.run_test(Keyword.put_new(options, :suite, suites)) do
       {ok, failed, {user_skipped, auto_skipped}} ->
         cover && cover.()
@@ -134,6 +136,19 @@ defmodule Mix.Tasks.Ct do
       end
 
     {:ok, mods}
+  end
+  
+  defp load_app(app) do
+    case Application.load(app) do
+      :ok ->
+        :ok
+
+      {:error, {:already_loaded, ^app}} ->
+        :ok
+
+      err ->
+        Mix.raise("#{inspect(app)} is not on the code path! Loading failed with #{inspect(err)}")
+    end
   end
 
   defp to_erl_path(path) when is_binary(path), do: String.to_charlist(path)
