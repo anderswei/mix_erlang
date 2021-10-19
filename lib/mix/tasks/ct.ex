@@ -6,6 +6,7 @@ defmodule Mix.Tasks.Ct do
 
   @options [
     suite: [:string, :keep],
+    spec: [:string, :keep],
     group: [:string, :keep],
     testcase: [:string, :keep],
     dir: [:string, :keep],
@@ -34,7 +35,7 @@ defmodule Mix.Tasks.Ct do
         [d: :TEST]
       end
 
-    # :ok = Mix.Erlang.recompile_with_options(args, options)
+    :ok = Mix.Erlang.recompile_with_options(args, options)
 
     options =
       project
@@ -44,15 +45,29 @@ defmodule Mix.Tasks.Ct do
       |> Keyword.update(:logdir, 'log/ct', &to_erl_path/1)
       |> set_args(:group, opts)
       |> set_args(:suite, opts)
+      |> set_args(:spec, opts)
       |> set_args(:testcase, opts)
       |> set_args(:logdir, opts)
       |> Keyword.update!(:dirs, &(&1 ++ Keyword.get_values(opts, :dir)))
-      |> Keyword.put_new(:ct_hooks, [:cth_surefire, :cth_readable_failonly, :cth_readable_shell,:tt_cth])
-
+      |> Keyword.put_new(:ct_hooks, [
+        :cth_surefire,
+        :cth_readable_failonly,
+        :cth_readable_shell,
+        :tt_cth,
+        :cth_retry
+      ])
 
     File.mkdir_p!(options[:logdir])
 
-    {:ok, suites} = compile_tests(options)
+    options =
+      case Keyword.get(options, :spec) do
+        nil ->
+          {:ok, suites} = compile_tests(options)
+          Keyword.put_new(options, :suite, suites)
+
+        _spec ->
+          Keyword.delete(options, :suite)
+      end
 
     cover =
       if opts[:cover] do
@@ -60,11 +75,12 @@ defmodule Mix.Tasks.Ct do
         cover = Keyword.merge(@cover, project[:test_coverage] || [])
         cover[:tool].start(compile_path, cover)
       end
-    
+
     IO.inspect(options)
     load_app(:common_test)
     load_app(:cth_readable)
-    case :ct.run_test(Keyword.put_new(options, :suite, suites)) do
+
+    case :ct.run_test(options) do
       {ok, failed, {user_skipped, auto_skipped}} ->
         cover && cover.()
 
@@ -101,11 +117,11 @@ defmodule Mix.Tasks.Ct do
 
   defp transition(:suite, [values]) do
     String.split(values, ",")
-  end 
+  end
+
   defp transition(_name, values) do
     values
-  end 
-
+  end
 
   defp compile_tests(options) do
     dirs = Keyword.fetch!(options, :dirs)
@@ -137,7 +153,7 @@ defmodule Mix.Tasks.Ct do
 
     {:ok, mods}
   end
-  
+
   defp load_app(app) do
     case Application.load(app) do
       :ok ->
